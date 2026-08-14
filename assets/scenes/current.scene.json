@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "environment": {
+    "intensity": 0.9,
+    "rotationDegrees": 25.0,
+    "exposure": 1.0,
+    "ssaoStrength": 0.65,
+    "bloomEnabled": true,
+    "bloomThreshold": 1.5,
+    "bloomStrength": 0.08,
+    "iblSpecularStrength": 0.22,
+    "renderPath": 0
+  },
+  "lights": [
+    {
+      "name": "Key Directional",
+      "type": 0,
+      "direction": [0.35, 0.8, 0.45],
+      "position": [0.0, 5.0, 4.0],
+      "color": [1.0, 0.92, 0.8],
+      "intensity": 2.5,
+      "range": 8.0,
+      "width": 2.0,
+      "height": 2.0
+    },
+    {
+      "name": "Fill Point",
+      "type": 1,
+      "direction": [0.0, -1.0, 0.0],
+      "position": [-2.0, 2.5, -1.5],
+      "color": [0.25, 0.45, 1.0],
+      "intensity": 4.0,
+      "range": 7.0,
+      "width": 1.0,
+      "height": 1.0
+    }
+  ],
+  "objects": [
+    {
+      "name": "Damaged Helmet - PBR Demo",
+      "assetKey": "gltf://assets/models/DamagedHelmet/DamagedHelmet.glb#mesh=0/primitive=0",
+      "transform": {
+        "position": [0.0, 1.15, 0.0],
+        "rotationDegrees": [90.0, 0.0, 0.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "material": {
+        "baseColor": [1.0, 1.0, 1.0, 1.0],
+        "roughness": 1.0,
+        "metallic": 1.0
+      }
+    },
+    {
+      "name": "Ground",
+      "assetKey": "builtin://ground",
+      "transform": {
+        "position": [0.0, 0.0, 0.0],
+        "rotationDegrees": [0.0, 0.0, 0.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "material": {
+        "baseColor": [0.12, 0.14, 0.18, 1.0],
+        "roughness": 0.82,
+        "metallic": 0.0
+      }
+    }
+  ]
+}

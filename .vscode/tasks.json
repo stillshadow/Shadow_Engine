@@ -1,0 +1,49 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Shadow Engine: Configure",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "--preset",
+                "vs2022-x64"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Shadow Engine: Build Debug",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "--preset",
+                "debug"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOrder": "sequence",
+            "dependsOn": "Shadow Engine: Configure",
+            "problemMatcher": "$msCompile",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Shadow Engine: Run Debug",
+            "type": "process",
+            "command": "${workspaceFolder}\\build\\vscode\\Debug\\ShadowEngine.exe",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOrder": "sequence",
+            "dependsOn": "Shadow Engine: Build Debug",
+            "problemMatcher": []
+        }
+    ]
+}

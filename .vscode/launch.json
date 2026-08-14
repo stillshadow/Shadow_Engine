@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Shadow Engine: Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}\\build\\vscode\\Debug\\ShadowEngine.exe",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Shadow Engine: Build Debug",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        }
+    ]
+}
