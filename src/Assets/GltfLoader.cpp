@@ -296,10 +296,14 @@ bool GltfLoader::Load(
                     MeshVertex& destination = mesh.vertices[vertex];
                     destination.position = {
                         positions[vertex * 3], positions[vertex * 3 + 1], positions[vertex * 3 + 2]};
+                    // glTF 使用右手坐标，而渲染器的教学场景固定使用左手坐标。
+                    // 通过 X 轴反射统一手性；后面会同步反转三角形绕序，避免正面被剔除。
+                    destination.position.x = -destination.position.x;
                     if (normals.size() == vertexCount * 3)
                     {
                         destination.normal = {
                             normals[vertex * 3], normals[vertex * 3 + 1], normals[vertex * 3 + 2]};
+                        destination.normal.x = -destination.normal.x;
                     }
                     if (uvs.size() == vertexCount * 2)
                     {
@@ -310,6 +314,8 @@ bool GltfLoader::Load(
                         destination.tangent = {
                             tangents[vertex * 4], tangents[vertex * 4 + 1],
                             tangents[vertex * 4 + 2], tangents[vertex * 4 + 3]};
+                        destination.tangent.x = -destination.tangent.x;
+                        destination.tangent.w = -destination.tangent.w;
                     }
                     minimum.x = std::min(minimum.x, destination.position.x);
                     minimum.y = std::min(minimum.y, destination.position.y);
@@ -333,6 +339,10 @@ bool GltfLoader::Load(
                     mesh.indices[index] = ReadIndex(
                         indexData + index * indexStride, indexAccessor.componentType);
                 }
+                for (std::size_t triangle = 0; triangle + 2 < mesh.indices.size(); triangle += 3)
+                {
+                    std::swap(mesh.indices[triangle + 1], mesh.indices[triangle + 2]);
+                }
                 mesh.boundsCenter = {
                     (minimum.x + maximum.x) * 0.5F,
                     (minimum.y + maximum.y) * 0.5F,
@@ -355,6 +365,13 @@ bool GltfLoader::Load(
                             static_cast<float>(pbr.baseColorFactor[2]),
                             static_cast<float>(pbr.baseColorFactor[3])};
                     }
+                    if (material.emissiveFactor.size() == 3)
+                    {
+                        mesh.importedMaterial.emissiveFactor = {
+                            static_cast<float>(material.emissiveFactor[0]),
+                            static_cast<float>(material.emissiveFactor[1]),
+                            static_cast<float>(material.emissiveFactor[2])};
+                    }
                     mesh.importedMaterial.roughnessFactor =
                         static_cast<float>(pbr.roughnessFactor);
                     mesh.importedMaterial.metallicFactor =
@@ -365,6 +382,8 @@ bool GltfLoader::Load(
                         model, material.normalTexture.index, "Normal");
                     mesh.importedMaterial.metallicRoughnessTexture = ReadTexture(
                         model, pbr.metallicRoughnessTexture.index, "MetallicRoughness");
+                    mesh.importedMaterial.emissiveTexture = ReadTexture(
+                        model, material.emissiveTexture.index, "Emissive");
                 }
 
                 if (tangents.size() != vertexCount * 4)

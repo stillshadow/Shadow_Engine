@@ -14,13 +14,13 @@ cbuffer ObjectConstants : register(b0)
     float4 objectBaseColor;
     float3 cameraPosition;
     float objectRoughness;
-    float3 legacyLightDirection;
+    float3 emissiveFactor;
     float iblIntensity;
     float3 legacyLightColor;
     float objectMetallic;
     float debugViewMode;
     float environmentRotationRadians;
-    float materialPadding;
+    float emissiveStrength;
     float normalStrength;
     float parallaxHeightScale;
     float ssaoStrength;
@@ -38,13 +38,14 @@ cbuffer ObjectConstants : register(b0)
 Texture2D<float4> gBufferBaseColorRoughness : register(t0);
 Texture2D<float4> gBufferNormalMetallic : register(t1);
 Texture2D<float4> gBufferWorldPosition : register(t2);
-Texture2D<float> shadowMap : register(t3);
-Texture2D<float> ssaoTexture : register(t4);
-TextureCube<float4> environmentMap : register(t5);
-TextureCube<float4> irradianceMap : register(t6);
-TextureCube<float4> prefilteredEnvironmentMap : register(t7);
-Texture2D<float2> brdfLut : register(t8);
-TextureCube<float> pointShadowMap : register(t9);
+Texture2D<float4> gBufferEmissive : register(t3);
+Texture2D<float> shadowMap : register(t4);
+Texture2D<float> ssaoTexture : register(t5);
+TextureCube<float4> environmentMap : register(t6);
+TextureCube<float4> irradianceMap : register(t7);
+TextureCube<float4> prefilteredEnvironmentMap : register(t8);
+Texture2D<float2> brdfLut : register(t9);
+TextureCube<float> pointShadowMap : register(t10);
 SamplerState linearSampler : register(s0);
 SamplerComparisonState shadowSampler : register(s1);
 
@@ -223,6 +224,7 @@ float4 PSMain(VertexOutput input) : SV_TARGET
     const float metallic = saturate(normalMetallic.a);
     const float3 normal = normalize(normalMetallic.rgb * 2.0F - 1.0F);
     const float3 worldPosition = worldPositionSample.xyz;
+    const float3 emissive = gBufferEmissive.Load(int3(pixel, 0)).rgb;
     const float3 view = normalize(cameraPosition - worldPosition);
 
     if (debugViewMode > 0.5F && debugViewMode < 1.5F) return float4(baseColor, 1.0F);
@@ -281,24 +283,34 @@ float4 PSMain(VertexOutput input) : SV_TARGET
                 ? float3(0.0F, 1.0F, 0.0F) : float3(1.0F, 0.0F, 0.0F);
             const float3 right = normalize(cross(helper, areaDirection));
             const float3 up = normalize(cross(areaDirection, right));
-            const float2 signs[4] = {
-                float2(-0.5F, -0.5F), float2(0.5F, -0.5F),
-                float2(-0.5F, 0.5F), float2(0.5F, 0.5F)};
+            // 矩形内部的 4x4 分层样本近似面积积分，避免四个角产生独立点光斑。
+            const uint areaSampleGrid = 4;
+            const float areaSampleWeight = 1.0F / 16.0F;
             [unroll]
-            for (uint sampleIndex = 0; sampleIndex < 4; ++sampleIndex)
+            for (uint sampleY = 0; sampleY < areaSampleGrid; ++sampleY)
             {
-                const float3 samplePosition = currentLight.positionType.xyz +
-                    right * signs[sampleIndex].x * currentLight.areaSize.x +
-                    up * signs[sampleIndex].y * currentLight.areaSize.y;
-                const float3 toLight = samplePosition - worldPosition;
-                const float distanceToLight = length(toLight);
-                if (distanceToLight >= currentLight.colorRange.w) continue;
-                const float3 light = toLight / max(distanceToLight, 0.001F);
-                const float falloff = saturate(1.0F - distanceToLight / currentLight.colorRange.w);
-                const float attenuation = falloff * falloff / max(distanceToLight * distanceToLight, 1.0F);
-                directLighting += EvaluateDirectPbr(
-                    normal, view, light, baseColor, metallic, roughness,
-                    color * intensity * attenuation * 0.25F);
+                [unroll]
+                for (uint sampleX = 0; sampleX < areaSampleGrid; ++sampleX)
+                {
+                    const float2 sampleUv =
+                        (float2(sampleX, sampleY) + 0.5F) * 0.25F - 0.5F;
+                    const float3 samplePosition = currentLight.positionType.xyz +
+                        right * sampleUv.x * currentLight.areaSize.x +
+                        up * sampleUv.y * currentLight.areaSize.y;
+                    const float3 toLight = samplePosition - worldPosition;
+                    const float distanceToLight = length(toLight);
+                    if (distanceToLight >= currentLight.colorRange.w) continue;
+                    const float3 light = toLight / max(distanceToLight, 0.001F);
+                    const float emitterCosine = saturate(dot(areaDirection, -light));
+                    if (emitterCosine <= 0.0F) continue;
+                    const float falloff = saturate(
+                        1.0F - distanceToLight / currentLight.colorRange.w);
+                    const float attenuation = falloff * falloff /
+                        max(distanceToLight * distanceToLight, 1.0F);
+                    directLighting += EvaluateDirectPbr(
+                        normal, view, light, baseColor, metallic, roughness,
+                        color * intensity * attenuation * emitterCosine * areaSampleWeight);
+                }
             }
         }
         else
@@ -340,6 +352,6 @@ float4 PSMain(VertexOutput input) : SV_TARGET
 
     const float ao = ssaoTexture.Load(int3(pixel, 0));
     return float4(
-        iblDiffuse * lerp(1.0F, ao, ssaoStrength) + iblSpecular + directLighting,
+        iblDiffuse * lerp(1.0F, ao, ssaoStrength) + iblSpecular + directLighting + emissive,
         1.0F);
 }

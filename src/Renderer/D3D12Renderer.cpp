@@ -64,13 +64,13 @@ struct ObjectConstants
     DirectX::XMFLOAT4 baseColor;
     DirectX::XMFLOAT3 cameraPosition;
     float roughness;
-    DirectX::XMFLOAT3 lightDirection;
+    DirectX::XMFLOAT3 emissiveFactor;
     float iblIntensity;
     DirectX::XMFLOAT3 lightColor;
     float metallic;
     float debugViewMode;
     float environmentRotationRadians;
-    float materialPadding;
+    float emissiveStrength;
     float normalStrength;
     float parallaxHeightScale;
     float ssaoStrength;
@@ -116,6 +116,7 @@ struct SsaoConstants
     DirectX::XMFLOAT2 invResolution{};
     float radius = 1.5F;
     float strength = 0.0F;
+    DirectX::XMFLOAT4X4 view{};
 };
 
 struct PostProcessConstants
@@ -513,10 +514,12 @@ void D3D12Renderer::CreateGBufferResources()
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
+        DXGI_FORMAT_R16G16B16A16_FLOAT,
     };
     const std::array<std::array<float, 4>, GBufferCount> clearColors = {
         std::array<float, 4>{0.0F, 0.0F, 0.0F, 0.0F},
         std::array<float, 4>{0.5F, 0.5F, 1.0F, 0.0F},
+        std::array<float, 4>{0.0F, 0.0F, 0.0F, 0.0F},
         std::array<float, 4>{0.0F, 0.0F, 0.0F, 0.0F},
     };
 
@@ -903,12 +906,19 @@ void D3D12Renderer::CreateGraphicsPipeline()
     const std::vector<std::byte> geometryNormalsPixelShader =
         LoadShaderBytecode(shaderDirectory / L"GeometryNormalsPS.cso");
 
-    D3D12_DESCRIPTOR_RANGE materialTextureRange{};
-    materialTextureRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    materialTextureRange.NumDescriptors = 3;
-    materialTextureRange.BaseShaderRegister = 0;
-    materialTextureRange.RegisterSpace = 0;
-    materialTextureRange.OffsetInDescriptorsFromTableStart = 0;
+    std::array<D3D12_DESCRIPTOR_RANGE, 2> materialTextureRanges{};
+    materialTextureRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    materialTextureRanges[0].NumDescriptors = 3;
+    materialTextureRanges[0].BaseShaderRegister = 0;
+    materialTextureRanges[0].RegisterSpace = 0;
+    materialTextureRanges[0].OffsetInDescriptorsFromTableStart = 0;
+    // t14 已由 Vertex Shader 的 InstanceData 使用；Emissive 放在 Pixel-only t15，
+    // Descriptor Table 内仍紧跟前三张材质纹理，避免整体搬动 Shadow/GBuffer 寄存器。
+    materialTextureRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    materialTextureRanges[1].NumDescriptors = 1;
+    materialTextureRanges[1].BaseShaderRegister = 15;
+    materialTextureRanges[1].RegisterSpace = 0;
+    materialTextureRanges[1].OffsetInDescriptorsFromTableStart = 3;
 
     D3D12_DESCRIPTOR_RANGE shadowTextureRange{};
     shadowTextureRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
@@ -951,8 +961,9 @@ void D3D12Renderer::CreateGraphicsPipeline()
     rootParameters[0].Descriptor.RegisterSpace = 0;
     rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    rootParameters[1].DescriptorTable.NumDescriptorRanges = 1;
-    rootParameters[1].DescriptorTable.pDescriptorRanges = &materialTextureRange;
+    rootParameters[1].DescriptorTable.NumDescriptorRanges =
+        static_cast<UINT>(materialTextureRanges.size());
+    rootParameters[1].DescriptorTable.pDescriptorRanges = materialTextureRanges.data();
     rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     rootParameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     rootParameters[2].DescriptorTable.NumDescriptorRanges = 1;
@@ -1223,6 +1234,7 @@ void D3D12Renderer::CreateGraphicsPipeline()
     gBufferPipelineDescription.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
     gBufferPipelineDescription.RTVFormats[1] = DXGI_FORMAT_R16G16B16A16_FLOAT;
     gBufferPipelineDescription.RTVFormats[2] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    gBufferPipelineDescription.RTVFormats[3] = DXGI_FORMAT_R16G16B16A16_FLOAT;
     ThrowIfFailed(
         device_->CreateGraphicsPipelineState(
             &gBufferPipelineDescription, IID_PPV_ARGS(&gBufferPipelineState_)),
@@ -1321,13 +1333,13 @@ void D3D12Renderer::CreateGraphicsPipeline()
     deferredRanges[0] = {
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV, GBufferCount, 0, 0, 0};
     deferredRanges[1] = {
-        D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3, 0, 0};
-    deferredRanges[2] = {
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4, 0, 0};
+    deferredRanges[2] = {
+        D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 5, 0, 0};
     deferredRanges[3] = {
-        D3D12_DESCRIPTOR_RANGE_TYPE_SRV, EnvironmentDescriptorCount, 5, 0, 0};
+        D3D12_DESCRIPTOR_RANGE_TYPE_SRV, EnvironmentDescriptorCount, 6, 0, 0};
     deferredRanges[4] = {
-        D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 9, 0, 0};
+        D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 10, 0, 0};
     D3D12_ROOT_PARAMETER deferredParameters[6]{};
     deferredParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     deferredParameters[0].Descriptor.ShaderRegister = 0;
@@ -1541,7 +1553,7 @@ void D3D12Renderer::CreateMaterialTextures(const Assets::AssetManager& assets)
         throw std::runtime_error("Too many mesh assets for the material descriptor heap.");
     }
 
-    // 每个 Mesh 固定占用连续的三个 SRV：Base Color、Normal、Metallic-Roughness。
+    // 每个 Mesh 固定占用连续的四个 SRV：Base Color、Normal、Metallic-Roughness、Emissive。
     // 固定槽位比“有几张贴图就绑定几张”更容易追踪，也与 glTF 材质语义一一对应。
     D3D12_DESCRIPTOR_HEAP_DESC heapDescription{};
     heapDescription.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -1568,6 +1580,7 @@ void D3D12Renderer::CreateMaterialTextures(const Assets::AssetManager& assets)
     std::vector<ComPtr<ID3D12Resource>> uploadBuffers;
 
     const std::array<std::uint8_t, 4> whitePixel{255, 255, 255, 255};
+    const std::array<std::uint8_t, 4> blackPixel{0, 0, 0, 255};
     const std::array<std::uint8_t, 4> flatNormalPixel{128, 128, 255, 255};
 
     auto uploadTexture = [&](const Assets::CpuTexture& source,
@@ -1674,6 +1687,7 @@ void D3D12Renderer::CreateMaterialTextures(const Assets::AssetManager& assets)
         }
         GpuMaterialTextures gpuMaterial;
         gpuMaterial.firstSrv = gpuHandle;
+        gpuMaterial.emissiveFactor = mesh->importedMaterial.emissiveFactor;
         uploadTexture(
             mesh->importedMaterial.baseColorTexture, whitePixel,
             DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, gpuMaterial.resources[0]);
@@ -1683,7 +1697,11 @@ void D3D12Renderer::CreateMaterialTextures(const Assets::AssetManager& assets)
         uploadTexture(
             mesh->importedMaterial.metallicRoughnessTexture, whitePixel,
             DXGI_FORMAT_R8G8B8A8_UNORM, gpuMaterial.resources[2]);
-        gpuHandle.ptr += static_cast<UINT64>(descriptorSize) * 3;
+        // glTF 规定 Emissive 与 Base Color 一样以 sRGB 编码；采样时必须先解码到线性 HDR。
+        uploadTexture(
+            mesh->importedMaterial.emissiveTexture, blackPixel,
+            DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, gpuMaterial.resources[3]);
+        gpuHandle.ptr += static_cast<UINT64>(descriptorSize) * 4;
         gpuMaterialTextures_.emplace(key, std::move(gpuMaterial));
     }
 
@@ -2244,7 +2262,10 @@ void D3D12Renderer::UpdateObjectConstants(
         constants.baseColor = object.material.baseColor;
         constants.cameraPosition = cameraPosition;
         constants.roughness = object.material.roughness;
-        constants.lightDirection = lightDirection;
+        const auto gpuMaterial = gpuMaterialTextures_.find(object.assetKey);
+        constants.emissiveFactor = gpuMaterial != gpuMaterialTextures_.end()
+            ? gpuMaterial->second.emissiveFactor
+            : XMFLOAT3{0.0F, 0.0F, 0.0F};
         constants.iblIntensity = scene.Environment().intensity;
         constants.lightColor = {
             lightColor.x * lightIntensity,
@@ -2255,6 +2276,7 @@ void D3D12Renderer::UpdateObjectConstants(
         constants.debugViewMode = static_cast<float>(debugViewMode);
         constants.environmentRotationRadians =
             XMConvertToRadians(scene.Environment().rotationDegrees);
+        constants.emissiveStrength = object.material.emissiveStrength;
         constants.normalStrength = object.material.normalStrength;
         constants.parallaxHeightScale = object.material.parallaxHeightScale;
         constants.ssaoStrength = scene.Environment().renderPath == Scene::RenderPath::Deferred
@@ -2550,6 +2572,7 @@ void D3D12Renderer::Render(
             x.baseColor.z == y.baseColor.z && x.baseColor.w == y.baseColor.w &&
             x.roughness == y.roughness && x.metallic == y.metallic &&
             x.normalStrength == y.normalStrength &&
+            x.emissiveStrength == y.emissiveStrength &&
             x.parallaxHeightScale == y.parallaxHeightScale;
     };
 
@@ -2558,6 +2581,7 @@ void D3D12Renderer::Render(
         1.0F / static_cast<float>(width_), 1.0F / static_cast<float>(height_)};
     ssaoConstants.radius = 1.5F;
     ssaoConstants.strength = scene.Environment().ssaoStrength;
+    XMStoreFloat4x4(&ssaoConstants.view, XMMatrixTranspose(view));
     const UINT64 ssaoConstantsOffset = static_cast<UINT64>(frameIndex_) * 256ULL;
     std::memcpy(
         mappedSsaoConstants_ + ssaoConstantsOffset,
@@ -2591,6 +2615,7 @@ void D3D12Renderer::Render(
         const float gBufferClearValues[GBufferCount][4] = {
             {0.0F, 0.0F, 0.0F, 0.0F},
             {0.5F, 0.5F, 1.0F, 0.0F},
+            {0.0F, 0.0F, 0.0F, 0.0F},
             {0.0F, 0.0F, 0.0F, 0.0F},
         };
         for (std::size_t index = 0; index < GBufferCount; ++index)
@@ -2904,7 +2929,7 @@ void D3D12Renderer::Render(
     }
 
     // 选中物体描边使用两遍模板：先写模板，再绘制稍微外扩且模板不等于 1 的外壳。
-    if (editor.IsObjectSelected() &&
+    if (editor.ShowViewportOverlays() && editor.IsObjectSelected() &&
         editor.SelectedObjectIndex() < scene.Objects().size())
     {
         const std::uint32_t selectedIndex =
@@ -2938,7 +2963,8 @@ void D3D12Renderer::Render(
         }
     }
 
-    if (scene.Environment().showGeometryNormals && editor.IsObjectSelected() &&
+    if (editor.ShowViewportOverlays() && scene.Environment().showGeometryNormals &&
+        editor.IsObjectSelected() &&
         editor.SelectedObjectIndex() < scene.Objects().size())
     {
         const std::uint32_t selectedIndex =

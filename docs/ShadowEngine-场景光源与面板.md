@@ -49,7 +49,7 @@ Point Light 使用 `Light Position`、`Intensity` 和 `Range`。Shader 根据像
 
 ### Area
 
-Area Light 使用位置、发光方向、宽度、高度和范围。当前版本在矩形中心的四个角附近取样，再平均为一个近似的面光源结果。它不是完整的 LTC 面光源模型，但已经能表现比点光更柔和、更有面积感的高光，并且适合展示 Shader 推导过程。
+Area Light 使用位置、发光方向、宽度、高度和范围。当前版本在矩形内部进行 4x4 分层采样，再平均为一个近似的面光源结果；它不再把矩形四角当成几盏独立点光源。它不是完整的 LTC 面光源模型，但能表现比点光更连续、更有面积感的高光，并且适合展示 Shader 推导过程。
 
 ## 3. 数据流
 
@@ -100,7 +100,7 @@ Directional / Point / Area direct lighting
 ## 6. 目前的边界
 
 - 只有第一盏 Directional Light 使用 Shadow Map；Point 和 Area 暂无阴影；
-- Area Light 是四点采样近似，不是完整的物理面光源积分；
+- Area Light 是矩形 4x4 分层采样近似，不是完整的 LTC 物理面光源积分；
 - 光源编辑发生在 CPU Scene 层，每帧复制到对象常量缓冲；
 - 默认 ImGui 字体不包含中文字符，因此本面板使用英文 UI 文本，避免出现 `????`。源代码教学注释仍保持中文。
 

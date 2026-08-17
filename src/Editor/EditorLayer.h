@@ -46,12 +46,17 @@ public:
         Scene::Scene& scene, Assets::AssetManager& assets,
         float viewportWidth, float viewportHeight);
     void ToggleNormalDebugView() noexcept;
+    void CyclePortfolioDebugViews() noexcept;
 
     [[nodiscard]] DebugViewMode DebugView() const noexcept { return debugViewMode_; }
     [[nodiscard]] std::size_t SelectedObjectIndex() const noexcept { return selectedObjectIndex_; }
     [[nodiscard]] bool IsObjectSelected() const noexcept
     {
         return selectionKind_ == SelectionKind::Object;
+    }
+    [[nodiscard]] bool ShowViewportOverlays() const noexcept
+    {
+        return !hideViewportOverlays_;
     }
     [[nodiscard]] DirectX::XMMATRIX ViewMatrix() const noexcept { return camera_.ViewMatrix(); }
     [[nodiscard]] DirectX::XMMATRIX ProjectionMatrix(float aspectRatio) const noexcept
@@ -78,6 +83,7 @@ private:
     void DrawSceneObjectList(Scene::Scene& scene);
     void DrawSceneLightList(Scene::Scene& scene);
     void DrawLightsPanel(Scene::Scene& scene);
+    void DeleteSelectedLight(Scene::Scene& scene);
     void DrawLightVisuals(
         const Scene::Scene& scene,
         const DirectX::XMMATRIX& view,
@@ -112,6 +118,7 @@ private:
     GizmoOperation gizmoOperation_ = GizmoOperation::Translate;
     DebugViewMode debugViewMode_ = DebugViewMode::Lit;
     bool showEditorUi_ = true;
+    bool hideViewportOverlays_ = false;
     bool sceneDirty_ = false;
     // 只保存一个 Scene 快照：连续拖动视为一次操作，下一次新操作会覆盖旧快照。
     std::optional<Scene::Scene> undoScene_;

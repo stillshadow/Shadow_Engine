@@ -139,6 +139,7 @@ bool SameScene(const Shadow::Scene::Scene& left, const Shadow::Scene::Scene& rig
             a.material.roughness != b.material.roughness ||
             a.material.metallic != b.material.metallic ||
             a.material.normalStrength != b.material.normalStrength ||
+            a.material.emissiveStrength != b.material.emissiveStrength ||
             a.material.parallaxHeightScale != b.material.parallaxHeightScale)
         {
             return false;
@@ -216,6 +217,29 @@ void EditorLayer::ToggleNormalDebugView() noexcept
         : DebugViewMode::WorldNormal;
 }
 
+void EditorLayer::CyclePortfolioDebugViews() noexcept
+{
+    // 录制作品集时只循环最能解释 Deferred 数据流的五个画面；完整列表仍保留在 Inspector。
+    switch (debugViewMode_)
+    {
+    case DebugViewMode::Lit:
+        debugViewMode_ = DebugViewMode::GBufferBaseColor;
+        break;
+    case DebugViewMode::GBufferBaseColor:
+        debugViewMode_ = DebugViewMode::GBufferNormal;
+        break;
+    case DebugViewMode::GBufferNormal:
+        debugViewMode_ = DebugViewMode::GBufferPosition;
+        break;
+    case DebugViewMode::GBufferPosition:
+        debugViewMode_ = DebugViewMode::Ssao;
+        break;
+    default:
+        debugViewMode_ = DebugViewMode::Lit;
+        break;
+    }
+}
+
 void EditorLayer::Draw(
     Scene::Scene& scene,
     Assets::AssetManager& assets,
@@ -262,6 +286,11 @@ void EditorLayer::Draw(
         {
             FocusSelectedObject(scene, assets);
         }
+        if (ImGui::IsKeyPressed(ImGuiKey_Delete) &&
+            !ImGui::IsAnyItemActive() && selectionKind_ == SelectionKind::Light)
+        {
+            DeleteSelectedLight(scene);
+        }
     }
 
     camera_.UpdateInput(!io.WantCaptureMouse && !ImGuizmo::IsUsing());
@@ -271,18 +300,21 @@ void EditorLayer::Draw(
     if (showEditorUi_)
     {
         DrawScenePanel(scene);
-        DrawLightVisuals(scene, view, projection, viewportWidth, viewportHeight);
+        if (ShowViewportOverlays())
+        {
+            DrawLightVisuals(scene, view, projection, viewportWidth, viewportHeight);
 
-        // Gizmo 始终绘制；鼠标位于面板上时只关闭交互，避免它因为输入保护而消失。
-        // WantCaptureMouse 是 ImGui 给宿主程序的正式输入所有权信号；Hover 判断补足当前帧，
-        // 避免 Slider、Combo Popup 等控件的点击穿透到 Viewport 或 Gizmo。
-        const bool mouseOwnedByEditor = io.WantCaptureMouse ||
-            ImGui::IsAnyItemHovered() ||
-            ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
-        const bool allowGizmoInteraction =
-            !mouseOwnedByEditor || ImGuizmo::IsUsing();
-        DrawGizmo(
-            scene, view, projection, viewportWidth, viewportHeight, allowGizmoInteraction);
+            // Gizmo 始终绘制；只有当前帧真正悬停或正在操作的面板控件才关闭交互。
+            // 不能在这里使用 io.WantCaptureMouse：它可能保留上一帧的捕获结果，鼠标进入 Gizmo
+            // 时会导致 Enable 在相邻帧反复开关，表现为高亮和轴线闪烁。
+            const bool mouseOwnedByEditor = ImGui::IsAnyItemActive() ||
+                ImGui::IsAnyItemHovered() ||
+                ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+            const bool allowGizmoInteraction =
+                !mouseOwnedByEditor || ImGuizmo::IsUsing();
+            DrawGizmo(
+                scene, view, projection, viewportWidth, viewportHeight, allowGizmoInteraction);
+        }
     }
 
     // 左键只在空白 Viewport 中触发拾取。面板与 Gizmo 拥有更高输入优先级，
@@ -340,6 +372,9 @@ void EditorLayer::DrawScenePanel(Scene::Scene& scene)
     ImGui::SetNextWindowSize(ImVec2(leftPanelWidth, panelHeight), ImGuiCond_Always);
     if (ImGui::Begin("Scene Browser", nullptr, flags))
     {
+        ImGui::SeparatorText("Viewport");
+        ImGui::Checkbox("Hide Viewport Overlays", &hideViewportOverlays_);
+        ImGui::TextDisabled("Gizmo, outline, light visuals, and normal lines");
         DrawSceneObjectList(scene);
         DrawSceneLightList(scene);
         ImGui::SeparatorText("Status");
@@ -386,7 +421,7 @@ void EditorLayer::DrawScenePanel(Scene::Scene& scene)
                 "Rotation", &object.transform.rotationDegrees.x,
                 0.25F, -360.0F, 360.0F, "%.1f deg");
             transformChanged |= ImGui::DragFloat3(
-                "Scale", &object.transform.scale.x, 0.01F, 0.01F, 20.0F, "%.2f");
+                "Scale", &object.transform.scale.x, 0.05F, 0.01F, 200.0F, "%.2f");
             if (transformChanged)
             {
                 object.transform.scale.x = std::max(object.transform.scale.x, 0.01F);
@@ -434,6 +469,8 @@ void EditorLayer::DrawScenePanel(Scene::Scene& scene)
                 "Metallic", &object.material.metallic, 0.0F, 1.0F, "%.2f");
             sceneDirty_ |= ImGui::SliderFloat(
                 "Normal Strength", &object.material.normalStrength, 0.0F, 2.0F, "%.2f");
+            sceneDirty_ |= ImGui::SliderFloat(
+                "Emissive Strength", &object.material.emissiveStrength, 0.0F, 20.0F, "%.2f");
             sceneDirty_ |= ImGui::SliderFloat(
                 "Parallax Height", &object.material.parallaxHeightScale,
                 0.0F, 0.1F, "%.3f");
@@ -589,7 +626,7 @@ void EditorLayer::DrawScenePanel(Scene::Scene& scene)
             sceneDirty_ = true;
             statusMessage_ = "Defaults restored. Save to keep them.";
         }
-        ImGui::TextDisabled("W/E/R Gizmo | F Focus | N Normal debug");
+        ImGui::TextDisabled("W/E/R Gizmo | F Focus | D Debug cycle | N Normal debug");
     }
     ImGui::End();
 }
@@ -671,6 +708,24 @@ void EditorLayer::DrawSceneLightList(Scene::Scene& scene)
 {
     ImGui::SeparatorText("Lights");
     auto& lights = scene.Lights();
+    if (selectionKind_ == SelectionKind::Light &&
+        (selectedLightIndex_ >= lights.size() ||
+         lights[selectedLightIndex_].type == Scene::LightType::Directional))
+    {
+        const auto firstEditableLight = std::find_if(
+            lights.begin(), lights.end(), [](const Scene::SceneLight& light) {
+                return light.type != Scene::LightType::Directional;
+            });
+        if (firstEditableLight == lights.end())
+        {
+            selectionKind_ = SelectionKind::None;
+        }
+        else
+        {
+            selectedLightIndex_ = static_cast<std::size_t>(
+                std::distance(lights.begin(), firstEditableLight));
+        }
+    }
     const std::size_t editableLightCount = static_cast<std::size_t>(std::count_if(
         lights.begin(), lights.end(), [](const Scene::SceneLight& light) {
             return light.type != Scene::LightType::Directional;
@@ -781,12 +836,46 @@ void EditorLayer::DrawSceneLightList(Scene::Scene& scene)
     {
         if (ImGui::Button("Delete Selected Light", ImVec2(-1.0F, 0.0F)))
         {
-            lights.erase(lights.begin() + static_cast<std::ptrdiff_t>(selectedLightIndex_));
-            selectedLightIndex_ = 0;
-            selectionKind_ = SelectionKind::Light;
-            sceneDirty_ = true;
+            DeleteSelectedLight(scene);
         }
     }
+    ImGui::TextDisabled("Select a light in the list or viewport; Delete removes it.");
+}
+
+void EditorLayer::DeleteSelectedLight(Scene::Scene& scene)
+{
+    auto& lights = scene.Lights();
+    if (selectedLightIndex_ >= lights.size() ||
+        lights[selectedLightIndex_].type == Scene::LightType::Directional)
+    {
+        return;
+    }
+
+    lights.erase(lights.begin() + static_cast<std::ptrdiff_t>(selectedLightIndex_));
+    const auto firstEditableLight = std::find_if(
+        lights.begin(), lights.end(), [](const Scene::SceneLight& light) {
+            return light.type != Scene::LightType::Directional;
+        });
+    if (firstEditableLight == lights.end())
+    {
+        selectedLightIndex_ = 0;
+        selectionKind_ = SelectionKind::None;
+    }
+    else
+    {
+        const std::size_t preferredIndex = std::min(selectedLightIndex_, lights.size() - 1);
+        if (lights[preferredIndex].type != Scene::LightType::Directional)
+        {
+            selectedLightIndex_ = preferredIndex;
+        }
+        else
+        {
+            selectedLightIndex_ = static_cast<std::size_t>(
+                std::distance(lights.begin(), firstEditableLight));
+        }
+        selectionKind_ = SelectionKind::Light;
+    }
+    sceneDirty_ = true;
 }
 
 void EditorLayer::DrawLightVisuals(
@@ -806,6 +895,34 @@ void EditorLayer::DrawLightVisuals(
         XMFLOAT3 result{};
         XMStoreFloat3(&result, value);
         return result;
+    };
+    const auto drawWorldCircle = [&](const XMVECTOR center,
+                                     const XMVECTOR axisA,
+                                     const XMVECTOR axisB,
+                                     const float radius,
+                                     const ImU32 color,
+                                     const float thickness) {
+        constexpr int segmentCount = 64;
+        ImVec2 previousScreen{};
+        bool previousVisible = false;
+        for (int segment = 0; segment <= segmentCount; ++segment)
+        {
+            const float angle = XM_2PI * static_cast<float>(segment) /
+                static_cast<float>(segmentCount);
+            const XMVECTOR point = XMVectorAdd(
+                center,
+                XMVectorAdd(
+                    XMVectorScale(axisA, std::cos(angle) * radius),
+                    XMVectorScale(axisB, std::sin(angle) * radius)));
+            ImVec2 screen{};
+            const bool visible = project(worldPoint(point), screen);
+            if (visible && previousVisible)
+            {
+                drawList->AddLine(previousScreen, screen, color, thickness);
+            }
+            previousScreen = screen;
+            previousVisible = visible;
+        }
     };
 
     for (std::size_t index = 0; index < scene.Lights().size(); ++index)
@@ -837,14 +954,18 @@ void EditorLayer::DrawLightVisuals(
                 ImVec2(center.x, center.y - 14.0F),
                 ImVec2(center.x, center.y + 14.0F), color, 1.0F);
 
-            ImVec2 rangePoint{};
-            const XMVECTOR rangeWorld = XMVectorAdd(
-                XMLoadFloat3(&light.position), XMVectorSet(light.range, 0.0F, 0.0F, 0.0F));
-            if (project(worldPoint(rangeWorld), rangePoint))
+            if (selected)
             {
-                const float radius = std::clamp(
-                    std::abs(rangePoint.x - center.x), 12.0F, 180.0F);
-                drawList->AddCircle(center, radius, dimColor, 32, 1.0F);
+                // Range 是世界空间球体，不是固定像素半径。三组互相垂直的大圆会随相机透视
+                // 正确变化，拖动 Range 时也能直接看到真实影响边界。
+                const XMVECTOR lightCenter = XMLoadFloat3(&light.position);
+                const XMVECTOR worldX = XMVectorSet(1.0F, 0.0F, 0.0F, 0.0F);
+                const XMVECTOR worldY = XMVectorSet(0.0F, 1.0F, 0.0F, 0.0F);
+                const XMVECTOR worldZ = XMVectorSet(0.0F, 0.0F, 1.0F, 0.0F);
+                const float range = std::max(light.range, 0.1F);
+                drawWorldCircle(lightCenter, worldX, worldY, range, dimColor, 1.5F);
+                drawWorldCircle(lightCenter, worldX, worldZ, range, dimColor, 1.5F);
+                drawWorldCircle(lightCenter, worldY, worldZ, range, dimColor, 1.5F);
             }
         }
         else if (light.type == Scene::LightType::Area)
@@ -947,6 +1068,12 @@ void EditorLayer::DrawLightsPanel(Scene::Scene& scene)
     {
         Scene::SceneLight& light = lights[selectedLightIndex_];
         ImGui::Text("Type: %s", LightTypeName(light.type));
+        ImGui::TextDisabled("Selected light: use W to move, E to rotate, Delete to remove.");
+        if (ImGui::Button("Delete Selected Light", ImVec2(-1.0F, 0.0F)))
+        {
+            DeleteSelectedLight(scene);
+            return;
+        }
         float color[3] = {light.color.x, light.color.y, light.color.z};
         if (ImGui::ColorEdit3("Light Color", color))
         {
@@ -996,7 +1123,6 @@ void EditorLayer::DrawLightsPanel(Scene::Scene& scene)
             ImGui::TextDisabled("W moves the spot light; E rotates its emission direction.");
         }
     }
-
 }
 
 void EditorLayer::DrawGizmo(
@@ -1093,15 +1219,16 @@ void EditorLayer::DrawGizmo(
             sceneLight->position = {position[0], position[1], position[2]};
             if (rotatingDirectedLight)
             {
-                const DirectX::XMMATRIX eulerRotation = DirectX::XMMatrixRotationRollPitchYaw(
-                    DirectX::XMConvertToRadians(rotation[0]),
-                    DirectX::XMConvertToRadians(rotation[1]),
-                    DirectX::XMConvertToRadians(rotation[2]));
+                // 不再用 ImGuizmo 的欧拉角重新拼方向：当面光源绕 X 轴旋转时，
+                // 欧拉角顺序和当前局部基准方向可能互相抵消。直接读取 gizmo
+                // 最终矩阵把本地发光轴 (-Y) 变换到世界空间，三条旋转轴行为一致。
+                const DirectX::XMMATRIX manipulatedModel =
+                    DirectX::XMLoadFloat4x4(&modelForGizmo);
                 DirectX::XMFLOAT3 direction{};
                 DirectX::XMStoreFloat3(
                     &direction,
                     DirectX::XMVector3Normalize(DirectX::XMVector3TransformNormal(
-                        DirectX::XMVectorSet(0.0F, -1.0F, 0.0F, 0.0F), eulerRotation)));
+                        DirectX::XMVectorSet(0.0F, -1.0F, 0.0F, 0.0F), manipulatedModel)));
                 sceneLight->direction = direction;
             }
         }

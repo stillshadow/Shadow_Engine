@@ -5,13 +5,13 @@ struct ObjectConstants
     float4 baseColor;
     float3 cameraPosition;
     float roughness;
-    float3 lightDirection;
+    float3 emissiveFactor;
     float iblIntensity;
     float3 lightColor;
     float metallic;
     float debugViewMode;
     float environmentRotationRadians;
-    float materialPadding;
+    float emissiveStrength;
     float normalStrength;
     float parallaxHeightScale;
     float ssaoStrength;
@@ -27,6 +27,7 @@ cbuffer ObjectConstantsBuffer : register(b0)
 Texture2D<float4> baseColorTexture : register(t0);
 Texture2D<float4> normalTexture : register(t1);
 Texture2D<float4> metallicRoughnessTexture : register(t2);
+Texture2D<float4> emissiveTexture : register(t15);
 SamplerState materialSampler : register(s0);
 
 struct InstanceData
@@ -85,6 +86,7 @@ struct GBufferOutput
     float4 baseColorRoughness : SV_TARGET0;
     float4 normalMetallic : SV_TARGET1;
     float4 worldPosition : SV_TARGET2;
+    float4 emissive : SV_TARGET3;
 };
 
 GBufferOutput PSMain(VertexOutput input)
@@ -115,5 +117,9 @@ GBufferOutput PSMain(VertexOutput input)
     output.baseColorRoughness = float4(sampledBaseColor.rgb, roughness);
     output.normalMetallic = float4(normal * 0.5F + 0.5F, metallic);
     output.worldPosition = float4(input.worldPosition, 1.0F);
+    output.emissive = float4(
+        emissiveTexture.Sample(materialSampler, materialUv).rgb *
+            objectConstants.emissiveFactor * objectConstants.emissiveStrength,
+        1.0F);
     return output;
 }

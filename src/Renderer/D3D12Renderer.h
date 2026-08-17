@@ -65,8 +65,8 @@ private:
     static constexpr std::uint32_t FrameCount = 3;
     static constexpr std::uint32_t MaxSceneObjects = 128;
     static constexpr std::uint32_t ImGuiDescriptorCount = 16;
-    static constexpr std::uint32_t MaterialDescriptorCount = MaxSceneObjects * 3;
-    static constexpr std::uint32_t GBufferCount = 3;
+    static constexpr std::uint32_t MaterialDescriptorCount = MaxSceneObjects * 4;
+    static constexpr std::uint32_t GBufferCount = 4;
     // SSAO 与 HDR/Bloom 的 SRV 放在材质共用的 shader-visible heap 中。
     static constexpr std::uint32_t PostProcessDescriptorCount = 4;
     // 可见环境、Diffuse Irradiance、Specular Prefilter 和 BRDF LUT。
@@ -149,8 +149,9 @@ private:
     bool imguiInitialized_ = false;
     struct GpuMaterialTextures
     {
-        std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 3> resources;
+        std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 4> resources;
         D3D12_GPU_DESCRIPTOR_HANDLE firstSrv{};
+        DirectX::XMFLOAT3 emissiveFactor{};
     };
     std::unordered_map<std::string, GpuMaterialTextures> gpuMaterialTextures_;
     // 每张交换链后备缓冲都对应一个命令分配器。只有 GPU 执行完使用该分配器

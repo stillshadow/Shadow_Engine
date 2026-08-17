@@ -1,14 +1,15 @@
-# 最终 PBR 演示：Damaged Helmet
+# 最终 PBR 演示：Emissive BoomBox
 
-当前默认场景改为一个可复现的单模型材质演示：地面使用内置网格，主体使用 Khronos glTF Sample Assets 的 `DamagedHelmet.glb`。这个 GLB 将 base color、normal 和 metallic-roughness 纹理嵌在同一个文件中，因此可以直接验证引擎的资产发现、纹理上传、切线空间法线和 Cook-Torrance PBR 路径。
+当前默认场景是一个可复现的单模型材质演示：地面使用内置网格，主体使用 Khronos glTF Sample Assets 的 `BoomBox.glb`。这个 CC0 GLB 只有一个 Mesh 和一个材质，并将 base color、normal、metallic-roughness 与 emissive 纹理嵌在同一个文件中，可以同时验证 Cook-Torrance PBR、自发光 HDR 数据和 Bloom。
 
 ## 运行后应该检查什么
 
 1. 先确认主体不再是两个相互遮挡的默认球体。
 2. 按 `Tab` 隐藏左右编辑器面板和 Gizmo，查看干净的渲染结果。
-3. 在 Inspector 的 `Debug View` 依次检查 `Base Color`、`World Normal`、`Roughness` 和 `Metallic`。
+3. 按 `D` 快切 `Lit → GBuffer Base Color → GBuffer Normal → GBuffer Position → SSAO → Lit`。
 4. 调整 `Newport Loft HDRI` 的 Intensity 与 Rotation，确认天空和金属反射同步变化；使用 `IBL Specular Strength` 单独控制模型环境反射而不压暗天空。
-5. 切换 `Render Path` 的 Forward / Deferred，比较同一套 PBR 在两条管线中的结果。
+5. 调整 `Emissive Strength`，再切换 Bloom，确认前面板先写入线性 HDR、经过亮部提取和模糊后才叠加回最终画面。
+6. 切换 `Render Path` 的 Forward / Deferred，确认两条路径都保留相同的自发光结果。
 
 ## HDRI 数据如何流进画面
 
@@ -29,8 +30,8 @@ Irradiance Cubemap、GGX Prefilter Mip Chain 和 BRDF LUT，减少每像素采�
 ## 资产位置
 
 ```text
-assets/models/DamagedHelmet/DamagedHelmet.glb
-assets/models/DamagedHelmet/README.md
+assets/models/BoomBox/BoomBox.glb
+assets/models/BoomBox/README.md
 assets/scenes/current.scene.json
 assets/environments/NewportLoft/newport_loft.hdr
 assets/environments/NewportLoft/README.md
@@ -39,11 +40,11 @@ assets/environments/NewportLoft/README.md
 场景中的 `assetKey` 指向 GLB 的第一个 primitive：
 
 ```text
-gltf://assets/models/DamagedHelmet/DamagedHelmet.glb#mesh=0/primitive=0
+gltf://assets/models/BoomBox/BoomBox.glb#mesh=0/primitive=0
 ```
 
 如果替换模型，保持“单个 Mesh、单个材质、纹理嵌入 GLB”的约束即可；启动时 `AssetManager::DiscoverGltfAssets` 会自动扫描 `assets/models/`，无需在 ImGui 中手动导入。
 
 ## 许可证提醒
 
-该演示资产来自 Khronos 的 glTF Sample Assets。仓库记录了 ctxwing 的 CC BY 4.0 转换许可，以及原始模型的 CC BY-NC 4.0 许可。公开作品集时应保留署名；如果作品集需要商业再分发，应替换为明确允许商业使用的 CC0 或 CC BY 资产。
+该演示资产来自 Khronos 的 glTF Sample Assets，由 Microsoft 于 2017 年以 CC0-1.0 发布，可以用于公开作品集；仓库仍保留来源与许可记录，方便审核和复现。

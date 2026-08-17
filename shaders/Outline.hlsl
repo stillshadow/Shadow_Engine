@@ -21,8 +21,15 @@ struct VertexOutput
 VertexOutput VSMain(VertexInput input)
 {
     VertexOutput output;
-    // 这是教学用的几何轮廓，外扩量保持很小，避免明显改变物体形状。
-    const float3 expandedPosition = input.position + normalize(input.normal) * 0.025F;
+    // 外扩量定义在世界空间，再除以 Model 的平均轴向缩放，避免导入模型的
+    // 100 倍展示缩放把轮廓同步放大成一圈厚壳。
+    const float3 modelAxisLengths = float3(
+        length(model[0].xyz), length(model[1].xyz), length(model[2].xyz));
+    const float averageModelScale = max(
+        (modelAxisLengths.x + modelAxisLengths.y + modelAxisLengths.z) / 3.0F, 0.001F);
+    const float localOutlineThickness = 0.01F / averageModelScale;
+    const float3 expandedPosition = input.position +
+        normalize(input.normal) * localOutlineThickness;
     output.position = mul(float4(expandedPosition, 1.0F), modelViewProjection);
     return output;
 }

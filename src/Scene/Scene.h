@@ -27,6 +27,8 @@ struct PbrMaterial
     float roughness = 0.5F;
     float metallic = 0.0F;
     float normalStrength = 1.0F;
+    // glTF Emissive 先按资产自带的 Factor/Texture 进入线性 HDR，再由该倍率放大到 Bloom 阈值以上。
+    float emissiveStrength = 1.0F;
     // 当前资产契约没有单独的 Height Map；大于 0 时先复用法线纹理的红色通道做视差高度。
     float parallaxHeightScale = 0.0F;
 };

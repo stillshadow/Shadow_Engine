@@ -12,20 +12,21 @@ The portfolio direction is an inspectable Forward/Deferred renderer. Both paths 
 Cook-Torrance PBR materials, lights, shadows, and HDRI; the editor switches between direct per-object lighting
 and GBuffer-driven fullscreen lighting with one control.
 
-The completed learning path now also includes tangent-space normal strength and lightweight parallax, a GBuffer-driven SSAO pass,
-an HDR intermediate target, exposure, bright-pass Bloom, separable blur, and final Tone Mapping/Gamma. The exact mapping and
+The completed learning path now also includes tangent-space normal strength and lightweight parallax, core glTF emissive materials,
+a GBuffer-driven SSAO pass, an HDR intermediate target, exposure, bright-pass Bloom, separable blur, and final Tone Mapping/Gamma. The exact mapping and
 intentional gaps compared with LearnOpenGL through PBR are listed in `docs/ShadowEngine-LearnOpenGL到PBR功能对照.md`.
 
 The same `assets/environments/NewportLoft/newport_loft.hdr` resource drives the visible sky, raster PBR IBL,
 and both raster lighting paths. It is converted from equirectangular HDR data to a D3D12 TextureCube during startup.
 
 
-The editor exposes a two-window scene browser/inspector with manually controlled Directional, Point, and Area
-lights. The first Directional light drives the existing shadow map; Point and Area lights currently use
-the direct PBR pass without separate shadow maps. See `docs/ShadowEngine-场景光源与面板.md`.
+The editor exposes a two-window scene browser/inspector with manually controlled Directional, Point, Area,
+and Spot lights. The first Directional and first Point light cast shadows. See `docs/ShadowEngine-场景光源与面板.md`.
 
 Press `Tab` to toggle the complete editor overlay. This hides both panels, light markers, and Gizmos for a
 clean render preview; press `Tab` again to restore them.
+Press `D` to cycle the portfolio debug sequence: Lit, GBuffer Base Color, GBuffer Normal,
+GBuffer Position, SSAO, and back to Lit.
 
 ## Requirements
 
@@ -81,9 +82,10 @@ The engine discovers GLB files under `assets/models/` at startup. The Editor sho
 scene object from a supported single-Mesh, single-material asset. This intentionally small contract keeps portfolio
 work focused on PBR, Forward/Deferred render passes, lighting, and visual debugging.
 
-The checked-in `assets/scenes/current.scene.json` is the final PBR demo: it uses the embedded-texture
-`assets/models/DamagedHelmet/DamagedHelmet.glb`, a ground, and a manually authored fill light. The asset credits and
-license notes are next to the GLB in `assets/models/DamagedHelmet/README.md`.
+The checked-in `assets/scenes/current.scene.json` is the final emissive PBR demo: it uses the CC0,
+embedded-texture `assets/models/BoomBox/BoomBox.glb`, a ground, and a manually authored fill light.
+Its emissive front panel provides a stable HDR source for the Bloom pass. Asset provenance and license notes
+are next to the GLB in `assets/models/BoomBox/README.md`.
 
 Manual runtime placement follows `assets/models/<AssetName>/<AssetName>.glb`. A GLB should embed its textures, so no
 separate engine texture folder is required. Named scenes are saved as `assets/scenes/<SceneName>.scene.json`; the

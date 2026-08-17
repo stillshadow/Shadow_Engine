@@ -13,13 +13,13 @@ cbuffer ObjectConstants : register(b0)
     float4 baseColor;
     float3 cameraPosition;
     float roughness;
-    float3 lightDirection;
+    float3 emissiveFactor;
     float iblIntensity;
     float3 lightColor;
     float metallic;
     float debugViewMode;
     float environmentRotationRadians;
-    float materialPadding;
+    float emissiveStrength;
     float normalStrength;
     float parallaxHeightScale;
     float ssaoStrength;
@@ -37,6 +37,7 @@ cbuffer ObjectConstants : register(b0)
 Texture2D<float4> baseColorTexture : register(t0);
 Texture2D<float4> normalTexture : register(t1);
 Texture2D<float4> metallicRoughnessTexture : register(t2);
+Texture2D<float4> emissiveTexture : register(t15);
 Texture2D<float> shadowMap : register(t3);
 Texture2D<float4> gBufferBaseColorRoughness : register(t4);
 Texture2D<float4> gBufferNormalMetallic : register(t5);
@@ -276,6 +277,8 @@ float4 PSMain(VertexOutput input) : SV_TARGET
     const float2 materialUv = ApplyParallax(input.uv, viewTangent);
     const float4 sampledBaseColor = baseColorTexture.Sample(materialSampler, materialUv) * baseColor;
     const float4 sampledMetallicRoughness = metallicRoughnessTexture.Sample(materialSampler, materialUv);
+    const float3 emissive = emissiveTexture.Sample(materialSampler, materialUv).rgb *
+        emissiveFactor * emissiveStrength;
     const float clampedRoughness = clamp(
         roughness * sampledMetallicRoughness.g, 0.045F, 1.0F);
     const float clampedMetallic = saturate(metallic * sampledMetallicRoughness.b);
@@ -387,30 +390,42 @@ float4 PSMain(VertexOutput input) : SV_TARGET
                 : float3(1.0F, 0.0F, 0.0F);
             const float3 areaRight = normalize(cross(helperAxis, areaDirection));
             const float3 areaUp = normalize(cross(areaDirection, areaRight));
-            const float2 sampleSigns[4] = {
-                float2(-0.5F, -0.5F), float2(0.5F, -0.5F),
-                float2(-0.5F, 0.5F), float2(0.5F, 0.5F)};
+            // 矩形内部的 4x4 分层样本近似面积积分，避免四个角产生独立点光斑。
+            const uint areaSampleGrid = 4;
+            const float areaSampleWeight = 1.0F / 16.0F;
             [unroll]
-            for (uint sampleIndex = 0; sampleIndex < 4; ++sampleIndex)
+            for (uint sampleY = 0; sampleY < areaSampleGrid; ++sampleY)
             {
-                const float3 samplePosition = currentLight.positionType.xyz +
-                    areaRight * sampleSigns[sampleIndex].x * currentLight.areaSize.x +
-                    areaUp * sampleSigns[sampleIndex].y * currentLight.areaSize.y;
-                const float3 toLight = samplePosition - input.worldPosition;
-                const float distanceToLight = length(toLight);
-                if (distanceToLight >= currentLight.colorRange.w)
+                [unroll]
+                for (uint sampleX = 0; sampleX < areaSampleGrid; ++sampleX)
                 {
-                    continue;
+                    const float2 sampleUv =
+                        (float2(sampleX, sampleY) + 0.5F) * 0.25F - 0.5F;
+                    const float3 samplePosition = currentLight.positionType.xyz +
+                        areaRight * sampleUv.x * currentLight.areaSize.x +
+                        areaUp * sampleUv.y * currentLight.areaSize.y;
+                    const float3 toLight = samplePosition - input.worldPosition;
+                    const float distanceToLight = length(toLight);
+                    if (distanceToLight >= currentLight.colorRange.w)
+                    {
+                        continue;
+                    }
+                    const float3 light = toLight / max(distanceToLight, 0.001F);
+                    const float emitterCosine = saturate(dot(areaDirection, -light));
+                    if (emitterCosine <= 0.0F)
+                    {
+                        continue;
+                    }
+                    const float falloff = saturate(
+                        1.0F - distanceToLight / currentLight.colorRange.w);
+                    const float attenuation = falloff * falloff /
+                        max(distanceToLight * distanceToLight, 1.0F);
+                    directLighting += EvaluateDirectPbr(
+                        normal, view, light, surfaceBaseColor, clampedMetallic,
+                        surfaceRoughness,
+                        currentColor * currentIntensity * attenuation *
+                            emitterCosine * areaSampleWeight);
                 }
-                const float3 light = toLight / max(distanceToLight, 0.001F);
-                const float falloff = saturate(
-                    1.0F - distanceToLight / currentLight.colorRange.w);
-                const float attenuation = falloff * falloff /
-                    max(distanceToLight * distanceToLight, 1.0F);
-                directLighting += EvaluateDirectPbr(
-                    normal, view, light, surfaceBaseColor, clampedMetallic,
-                    surfaceRoughness,
-                    currentColor * currentIntensity * attenuation * 0.25F);
             }
         }
         else
@@ -476,6 +491,6 @@ float4 PSMain(VertexOutput input) : SV_TARGET
     // 保持线性 HDR；曝光、Tone Mapping 和 Gamma 只在最终后处理执行一次。
     const float3 finalColor =
         iblDiffuse * lerp(1.0F, ambientOcclusion, ssaoStrength) +
-        iblSpecular + directLighting;
+        iblSpecular + directLighting + emissive;
     return float4(finalColor, sampledBaseColor.a);
 }

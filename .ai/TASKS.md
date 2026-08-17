@@ -21,9 +21,10 @@ None.
 
 | ID | Task | Owner | Priority | Details |
 | --- | --- | --- | --- | --- |
+| TA-044 | Emissive PBR demo, debug quick-cycle, and clearer SSAO | Released | P0 | Implementation, automated validation, glTF handedness correction, scale-compensated outline/Geometry Normals fixes, and ImGui viewport-overlay switch complete; manual Bloom/SSAO/debug-cycle visual review remains. `.ai/tasks/TA-044.md` |
 | TA-027 | Scene lights and editor panel cleanup | Codex | P0 | Kept as existing editor infrastructure; manual D3D12 visual inspection remains. |
 | TA-028 | Split scene editor panel and keep default directional light | Codex | P0 | Kept as existing editor infrastructure; manual D3D12 visual inspection remains. |
-| TA-029 | Visualize and rotate scene lights | Codex | P0 | Kept as existing editor infrastructure; manual D3D12 visual inspection remains. |
+| TA-029 | Visualize and rotate scene lights | Codex | P0 | Area/Spot direction now persists from the gizmo matrix; full light picking/deletion and 4x4 Area rectangle sampling are covered, with manual D3D12 visual inspection remaining. |
 | TA-030 | Toggle the complete editor overlay | Codex | P0 | Kept as existing editor infrastructure; manual D3D12 visual inspection remains. |
 
 ## Done

@@ -1,68 +1,188 @@
 {
-  "version": 1,
   "environment": {
-    "intensity": 0.9,
-    "rotationDegrees": 25.0,
-    "exposure": 1.0,
-    "ssaoStrength": 0.65,
     "bloomEnabled": true,
-    "bloomThreshold": 1.5,
-    "bloomStrength": 0.08,
+    "bloomStrength": 0.25,
+    "bloomThreshold": 1.0,
+    "exposure": 0.9,
     "iblSpecularStrength": 0.22,
-    "renderPath": 0
+    "intensity": 0.9,
+    "msaaEnabled": false,
+    "renderPath": 1,
+    "rotationDegrees": 25.0,
+    "showGeometryNormals": false,
+    "ssaoStrength": 0.52
   },
   "lights": [
     {
-      "name": "Key Directional",
-      "type": 0,
-      "direction": [0.35, 0.8, 0.45],
-      "position": [0.0, 5.0, 4.0],
-      "color": [1.0, 0.92, 0.8],
+      "color": [
+        1.0,
+        0.92,
+        0.8
+      ],
+      "direction": [
+        0.35,
+        0.8,
+        0.45
+      ],
+      "height": 2.0,
+      "innerConeDegrees": 20.0,
       "intensity": 2.5,
+      "name": "Key Directional",
+      "outerConeDegrees": 30.0,
+      "position": [
+        0.0,
+        5.0,
+        4.0
+      ],
       "range": 8.0,
-      "width": 2.0,
-      "height": 2.0
+      "type": 0,
+      "width": 2.0
     },
     {
-      "name": "Fill Point",
+      "color": [
+        1.0,
+        0.65,
+        0.35
+      ],
+      "direction": [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "height": 1.0,
+      "innerConeDegrees": 20.0,
+      "intensity": 1000.0,
+      "name": "Point 1",
+      "outerConeDegrees": 30.0,
+      "position": [
+        -0.6213,
+        1.2831,
+        -2.4794
+      ],
+      "range": 1.85,
       "type": 1,
-      "direction": [0.0, -1.0, 0.0],
-      "position": [-2.0, 2.5, -1.5],
-      "color": [0.25, 0.45, 1.0],
-      "intensity": 4.0,
-      "range": 7.0,
-      "width": 1.0,
-      "height": 1.0
+      "width": 1.0
+    },
+    {
+      "color": [
+        0.55,
+        0.7485,
+        1.0
+      ],
+      "direction": [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "height": 2.0,
+      "innerConeDegrees": 20.0,
+      "intensity": 37.95,
+      "name": "Spot 2",
+      "outerConeDegrees": 35.1,
+      "position": [
+        0.0,
+        3.5,
+        0.0122
+      ],
+      "range": 12.0,
+      "type": 3,
+      "width": 2.0
+    },
+    {
+      "color": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        -0.7672,
+        0.028,
+        -0.6408
+      ],
+      "height": 2.0,
+      "innerConeDegrees": 20.0,
+      "intensity": 8.0,
+      "name": "Area 3",
+      "outerConeDegrees": 30.0,
+      "position": [
+        1.5638,
+        0.7346,
+        1.225
+      ],
+      "range": 10.0,
+      "type": 2,
+      "width": 3.0
     }
   ],
   "objects": [
     {
-      "name": "Damaged Helmet - PBR Demo",
-      "assetKey": "gltf://assets/models/DamagedHelmet/DamagedHelmet.glb#mesh=0/primitive=0",
-      "transform": {
-        "position": [0.0, 1.15, 0.0],
-        "rotationDegrees": [90.0, 0.0, 0.0],
-        "scale": [1.0, 1.0, 1.0]
-      },
+      "assetKey": "gltf://assets/models/BoomBox/BoomBox.glb#mesh=0/primitive=0",
       "material": {
-        "baseColor": [1.0, 1.0, 1.0, 1.0],
-        "roughness": 1.0,
-        "metallic": 1.0
+        "baseColor": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "emissiveStrength": 6.0,
+        "metallic": 1.0,
+        "normalStrength": 1.0,
+        "parallaxHeightScale": 0.0,
+        "roughness": 1.0
+      },
+      "name": "BoomBox - Emissive PBR Demo",
+      "transform": {
+        "position": [
+          0.0,
+          0.9909,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          100.0,
+          100.0,
+          100.0
+        ]
       }
     },
     {
-      "name": "Ground",
       "assetKey": "builtin://ground",
-      "transform": {
-        "position": [0.0, 0.0, 0.0],
-        "rotationDegrees": [0.0, 0.0, 0.0],
-        "scale": [1.0, 1.0, 1.0]
-      },
       "material": {
-        "baseColor": [0.12, 0.14, 0.18, 1.0],
-        "roughness": 0.82,
-        "metallic": 0.0
+        "baseColor": [
+          0.12,
+          0.14,
+          0.18,
+          1.0
+        ],
+        "emissiveStrength": 1.0,
+        "metallic": 0.0,
+        "normalStrength": 1.0,
+        "parallaxHeightScale": 0.0,
+        "roughness": 0.82
+      },
+      "name": "Ground",
+      "transform": {
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotationDegrees": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
       }
     }
-  ]
+  ],
+  "version": 1
 }

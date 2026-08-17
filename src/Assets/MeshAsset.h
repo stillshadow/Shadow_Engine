@@ -33,11 +33,13 @@ struct CpuTexture
 struct ImportedMaterial
 {
     DirectX::XMFLOAT4 baseColorFactor{1.0F, 1.0F, 1.0F, 1.0F};
+    DirectX::XMFLOAT3 emissiveFactor{0.0F, 0.0F, 0.0F};
     float roughnessFactor = 1.0F;
     float metallicFactor = 0.0F;
     CpuTexture baseColorTexture;
     CpuTexture normalTexture;
     CpuTexture metallicRoughnessTexture;
+    CpuTexture emissiveTexture;
 };
 
 struct MeshAsset

@@ -201,11 +201,12 @@ std::optional<std::size_t> PickSceneLight(
             continue;
         }
 
-        // Point Light 使用图标周围的固定像素半径；这样远近变化不会让图标难以点中。
-        float minimumX = centerScreen.x - 16.0F;
-        float maximumX = centerScreen.x + 16.0F;
-        float minimumY = centerScreen.y - 16.0F;
-        float maximumY = centerScreen.y + 16.0F;
+        // 点光源和聚光灯中心图标使用固定像素命中范围；这样远近变化不会让图标难以点中。
+        constexpr float iconPickHalfSize = 22.0F;
+        float minimumX = centerScreen.x - iconPickHalfSize;
+        float maximumX = centerScreen.x + iconPickHalfSize;
+        float minimumY = centerScreen.y - iconPickHalfSize;
+        float maximumY = centerScreen.y + iconPickHalfSize;
         if (light.type == Scene::LightType::Area)
         {
             // Area Light 的整块矩形都可以点击，而不只是中心点。
@@ -234,10 +235,48 @@ std::optional<std::size_t> PickSceneLight(
                         worldCorner, viewportWidth, viewportHeight,
                         view, projection, screenCorner))
                 {
-                    minimumX = std::min(minimumX, screenCorner.x - 5.0F);
-                    maximumX = std::max(maximumX, screenCorner.x + 5.0F);
-                    minimumY = std::min(minimumY, screenCorner.y - 5.0F);
-                    maximumY = std::max(maximumY, screenCorner.y + 5.0F);
+                    minimumX = std::min(minimumX, screenCorner.x - 8.0F);
+                    maximumX = std::max(maximumX, screenCorner.x + 8.0F);
+                    minimumY = std::min(minimumY, screenCorner.y - 8.0F);
+                    maximumY = std::max(maximumY, screenCorner.y + 8.0F);
+                }
+            }
+        }
+        else if (light.type == Scene::LightType::Spot)
+        {
+            // 聚光灯的锥体边缘也是可见的编辑器图形，允许点击锥体任意一条连线选中它。
+            XMVECTOR right{};
+            XMVECTOR up{};
+            BuildAreaBasis(light.direction, right, up);
+            const XMVECTOR center = XMLoadFloat3(&light.position);
+            XMVECTOR direction = XMLoadFloat3(&light.direction);
+            direction = XMVectorGetX(XMVector3LengthSq(direction)) > 0.000001F
+                ? XMVector3Normalize(direction)
+                : XMVectorSet(0.0F, -1.0F, 0.0F, 0.0F);
+            const float coneLength = std::min(std::max(light.range, 0.1F), 4.0F);
+            const float coneRadius = std::tan(XMConvertToRadians(light.outerConeDegrees)) *
+                coneLength;
+            const XMVECTOR coneCenter = XMVectorAdd(
+                center, XMVectorScale(direction, coneLength));
+            const std::array<XMVECTOR, 4> rimPoints = {
+                XMVectorAdd(coneCenter, XMVectorScale(right, coneRadius)),
+                XMVectorAdd(coneCenter, XMVectorScale(right, -coneRadius)),
+                XMVectorAdd(coneCenter, XMVectorScale(up, coneRadius)),
+                XMVectorAdd(coneCenter, XMVectorScale(up, -coneRadius)),
+            };
+            for (const XMVECTOR rimPoint : rimPoints)
+            {
+                XMFLOAT3 worldPoint{};
+                XMFLOAT3 screenPoint{};
+                XMStoreFloat3(&worldPoint, rimPoint);
+                if (ProjectPoint(
+                        worldPoint, viewportWidth, viewportHeight,
+                        view, projection, screenPoint))
+                {
+                    minimumX = std::min(minimumX, screenPoint.x - 8.0F);
+                    maximumX = std::max(maximumX, screenPoint.x + 8.0F);
+                    minimumY = std::min(minimumY, screenPoint.y - 8.0F);
+                    maximumY = std::max(maximumY, screenPoint.y + 8.0F);
                 }
             }
         }

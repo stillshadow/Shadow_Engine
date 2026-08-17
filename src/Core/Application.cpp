@@ -143,9 +143,16 @@ LRESULT Application::HandleWindowMessage(
     const WPARAM wParam,
     const LPARAM lParam)
 {
-    // N 是渲染调试快捷键，应先于 ImGui 的键盘消息处理。
-    // 这样即使面板当前处于激活状态，也可以随时切换法线调试视图。
+    // D/N 是渲染调试快捷键，应先于 ImGui 的键盘消息处理。
+    // 这样即使面板当前处于激活状态，也可以随时切换作品集 Debug 或法线视图。
     constexpr LPARAM PreviousKeyStateMask = static_cast<LPARAM>(1) << 30;
+    if (message == WM_KEYDOWN &&
+        wParam == static_cast<WPARAM>('D') &&
+        (lParam & PreviousKeyStateMask) == 0)
+    {
+        editor_.CyclePortfolioDebugViews();
+        return 0;
+    }
     if (message == WM_KEYDOWN &&
         wParam == static_cast<WPARAM>('N') &&
         (lParam & PreviousKeyStateMask) == 0)

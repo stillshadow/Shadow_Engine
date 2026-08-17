@@ -39,13 +39,21 @@ void GSMain(triangle VertexToGeometry input[3], inout LineStream<GeometryToPixel
         (input[0].localPosition + input[1].localPosition + input[2].localPosition) / 3.0F;
     const float3 normal = normalize(
         input[0].localNormal + input[1].localNormal + input[2].localNormal);
+    // 法线线段长度定义在世界空间，再除以 Model 的平均缩放，避免大型导入模型
+    // 的调试线段被同步放大到遮住模型本身。
+    const float3 modelAxisLengths = float3(
+        length(model[0].xyz), length(model[1].xyz), length(model[2].xyz));
+    const float averageModelScale = max(
+        (modelAxisLengths.x + modelAxisLengths.y + modelAxisLengths.z) / 3.0F, 0.001F);
+    const float localNormalLength = 0.12F / averageModelScale;
 
     GeometryToPixel start;
     start.position = mul(float4(center, 1.0F), modelViewProjection);
     stream.Append(start);
 
     GeometryToPixel end;
-    end.position = mul(float4(center + normal * 0.12F, 1.0F), modelViewProjection);
+    end.position = mul(
+        float4(center + normal * localNormalLength, 1.0F), modelViewProjection);
     stream.Append(end);
 }
 

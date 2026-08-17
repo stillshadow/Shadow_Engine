@@ -235,6 +235,8 @@ bool SceneSerializer::Load(
                 std::clamp(saved.at("material").at("metallic").get<float>(), 0.0F, 1.0F);
             object.material.normalStrength = std::clamp(
                 saved.at("material").value("normalStrength", 1.0F), 0.0F, 2.0F);
+            object.material.emissiveStrength = std::clamp(
+                saved.at("material").value("emissiveStrength", 1.0F), 0.0F, 20.0F);
             object.material.parallaxHeightScale = std::clamp(
                 saved.at("material").value("parallaxHeightScale", 0.0F), 0.0F, 0.1F);
         }
@@ -304,6 +306,7 @@ bool SceneSerializer::Save(
                     {"roughness", ReadableFloat(object.material.roughness)},
                     {"metallic", ReadableFloat(object.material.metallic)},
                     {"normalStrength", ReadableFloat(object.material.normalStrength)},
+                    {"emissiveStrength", ReadableFloat(object.material.emissiveStrength)},
                     {"parallaxHeightScale", ReadableFloat(object.material.parallaxHeightScale)},
                 }},
             });

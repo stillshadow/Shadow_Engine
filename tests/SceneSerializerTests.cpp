@@ -23,6 +23,7 @@ int main()
     sourceObject.transform.scale = {1.5F, 0.8F, 2.0F};
     sourceObject.material.roughness = 0.37F;
     sourceObject.material.metallic = 0.65F;
+    sourceObject.material.emissiveStrength = 4.25F;
     sourceObject.assetKey = "gltf://assets/models/test.glb#mesh=0/primitive=0";
     source.Environment().intensity = 2.25F;
     source.Environment().rotationDegrees = -35.0F;
@@ -85,6 +86,7 @@ int main()
         NearlyEqual(loadedObject.transform.scale.z, 2.0F) &&
         NearlyEqual(loadedObject.material.roughness, 0.37F) &&
         NearlyEqual(loadedObject.material.metallic, 0.65F) &&
+        NearlyEqual(loadedObject.material.emissiveStrength, 4.25F) &&
         loadedObject.assetKey == sourceObject.assetKey &&
         NearlyEqual(loaded.Environment().intensity, 2.25F) &&
         NearlyEqual(loaded.Environment().rotationDegrees, -35.0F) &&

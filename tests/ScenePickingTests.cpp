@@ -96,5 +96,35 @@ int main()
         return 1;
     }
 
+    scene.Lights().push_back({
+        "Picking Area",
+        Shadow::Scene::LightType::Area,
+        {0.0F, -1.0F, 0.0F},
+        {-1.0F, 1.5F, 0.0F},
+        {1.0F, 0.5F, 0.2F},
+        3.0F,
+        5.0F,
+        2.0F,
+        1.5F,
+    });
+    const auto& areaLight = scene.Lights().back();
+    const XMVECTOR projectedArea = XMVector3Project(
+        XMLoadFloat3(&areaLight.position),
+        0.0F, 0.0F, viewportWidth, viewportHeight, 0.0F, 1.0F,
+        projection, view, XMMatrixIdentity());
+    const auto pickedArea = Shadow::Editor::PickSceneLight(
+        scene,
+        XMVectorGetX(projectedArea),
+        XMVectorGetY(projectedArea),
+        viewportWidth,
+        viewportHeight,
+        view,
+        projection);
+    if (!pickedArea.has_value() || *pickedArea != scene.Lights().size() - 1)
+    {
+        std::cerr << "Projected area light was not picked.\n";
+        return 1;
+    }
+
     return 0;
 }
